@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "moduleDetection": "force",
+    "types": ["node", "vite/client"]
+  },
+  "include": [
+    "vite.config.ts",
+    "ocrAssets.ts",
+    "vitest.config.ts",
+    "src/**/*.test.ts",
+    "src/billReader/parseBill.ts"
+  ]
+}

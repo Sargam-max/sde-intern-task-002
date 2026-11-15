@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bill-splitter-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-22",
+  "compatibility_flags": ["nodejs_compat"],
+  // Fixed address so the web app's proxy always finds the API. If port 8787 is taken,
+  // `pnpm dev` stops with a clear error instead of quietly moving to another port.
+  "dev": {
+    "ip": "127.0.0.1",
+    "port": 8787
+  },
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bill-splitter",
+      "database_id": "local-only",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

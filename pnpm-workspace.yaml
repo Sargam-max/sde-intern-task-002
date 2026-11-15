@@ -1,0 +1,9 @@
+packages:
+  - api
+  - web
+allowBuilds:
+  esbuild: true
+  workerd: true
+# tesseract.js only prints a funding message on install; nothing needs to run.
+ignoredBuiltDependencies:
+  - tesseract.js
