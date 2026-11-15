@@ -64,6 +64,9 @@ function Start() {
     <main className="page page-start">
       {/* Brand Hero Header */}
       <header className="hero-header">
+        <div className="hero-badge">
+          <span className="badge-sparkle">✨</span> Cloudflare D1 · Zero Rounding Drift
+        </div>
         <div className="brand-logo">
           <span className="brand-icon">⚡</span>
           <span className="brand-name">BillSplitter</span>

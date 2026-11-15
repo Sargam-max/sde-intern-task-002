@@ -106,17 +106,28 @@ function HomePage() {
       {/* Metrics Row */}
       <section className="metrics-grid">
         <div className="metric-card">
-          <span className="metric-label">Total Expenses</span>
+          <div className="metric-header-row">
+            <span className="metric-label">Total Expenses</span>
+            <span className="metric-beacon-dot ok" title="Live sync" />
+          </div>
           <span className="metric-value">{formatCents(totalBilledCents)}</span>
           <span className="metric-sub">{bills.length} bills recorded</span>
         </div>
         <div className="metric-card highlight-warn">
-          <span className="metric-label">Total Outstanding</span>
+          <div className="metric-header-row">
+            <span className="metric-label">Total Outstanding</span>
+            {totalOutstandingCents > 0 && (
+              <span className="metric-beacon-dot warn" title="Pending" />
+            )}
+          </div>
           <span className="metric-value warn">{formatCents(totalOutstandingCents)}</span>
           <span className="metric-sub">Across all roommates</span>
         </div>
         <div className="metric-card highlight-ok">
-          <span className="metric-label">Settled / Paid</span>
+          <div className="metric-header-row">
+            <span className="metric-label">Settled / Paid</span>
+            <span className="metric-beacon-dot ok" title="Verified" />
+          </div>
           <span className="metric-value ok">{formatCents(totalSettledCents)}</span>
           <span className="metric-sub">
             {totalBilledCents > 0
@@ -201,6 +212,29 @@ function HomePage() {
   )
 }
 
+function ShareButton() {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      void navigator.clipboard.writeText(window.location.href)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className="btn-share-pill"
+      onClick={handleCopy}
+      title="Copy household link"
+      aria-label="Copy household link"
+    >
+      {copied ? '✓ Copied!' : '🔗 Share'}
+    </button>
+  )
+}
+
 function Page({
   title,
   memberCount,
@@ -234,6 +268,7 @@ function Page({
                 <span className="meta-pill">
                   🧾 {billCount} {billCount === 1 ? 'bill' : 'bills'}
                 </span>
+                <ShareButton />
               </div>
             )}
           </div>
