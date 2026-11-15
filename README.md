@@ -1,5 +1,9 @@
 # Shared Bill Splitter
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-bill--splitter.sargam--max.workers.dev-success?style=for-the-badge&logo=cloudflare)](https://bill-splitter.sargam-max.workers.dev/)
+
+> 🚀 **Live Production Deployment**: [https://bill-splitter.sargam-max.workers.dev/](https://bill-splitter.sargam-max.workers.dev/)
+
 A production-grade, full-stack bill-splitting application designed for shared households, built on **Cloudflare Workers (Hono)**, **Cloudflare D1 (SQLite)**, **React 19**, and **Vite**.
 
 This project solves the problem of tracking shared living expenses without floating-point calculation errors, concurrency race conditions, or orphaned data. It includes a **dual-engine bill scanner** supporting both **Google Gemini 2.5 Flash Multimodal AI** for 100% precision on payable amounts and **Client-Side WebAssembly OCR** with Otsu adaptive binarization for completely offline, zero-data-leak bill parsing.
@@ -178,7 +182,12 @@ The frontend was completely rebuilt using a fintech-grade design system:
 
 ---
 
-## Local Development & Setup
+## Live Demo & Local Setup
+
+### Live Production Deployment
+
+Experience the live application deployed globally on Cloudflare Workers & D1:
+👉 **[https://bill-splitter.sargam-max.workers.dev/](https://bill-splitter.sargam-max.workers.dev/)**
 
 ### Prerequisites
 
