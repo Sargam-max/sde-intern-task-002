@@ -4,23 +4,24 @@ import { ApiStatus } from '../ApiStatus'
 import { TopNavbar } from '../components/TopNavbar'
 
 function RootComponent() {
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('bill-splitter-theme')
-      if (saved === 'dark' || saved === 'light') return saved
-      // Default to dark for premium fintech aesthetic, or follow system
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'dark'
+      const saved = localStorage.getItem('bill-splitter-theme-v2')
+      if (saved === 'light' || saved === 'dark') return saved
+      // Default to cool light theme as requested
+      return 'light'
     }
-    return 'dark'
+    return 'light'
   })
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('bill-splitter-theme-v2', theme)
     localStorage.setItem('bill-splitter-theme', theme)
   }, [theme])
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
   }
 
   return (
