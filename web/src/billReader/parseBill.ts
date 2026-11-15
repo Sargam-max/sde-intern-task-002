@@ -28,28 +28,47 @@ const MAX_CENTS = 99_999_999_999 // 999,999,999.99: anything bigger is not a hou
 
 // Higher score = more likely to be the amount to pay. Checked in order; first match wins.
 const LINE_RULES: { pattern: RegExp; score: number }[] = [
-  // Amounts that are about something else, or not the amount to pay now.
-  {
-    pattern: /\b(?:due|bill|invoice|statement|issue|order|expiry)\s+date\b|\bdate\s*[:=]/,
-    score: 2,
-  },
-  { pattern: /\b(after|post)\s+(the\s+)?due\s+date\b|\blate\s+(fee|payment|charge)/, score: 30 },
+  // 1. HIGHEST PRIORITY (Score 120): On-time / primary payable amount
   {
     pattern:
-      /\b(previous|last|prior)\s+(balance|bill|payment)|\bpayment\s+received|\bpaid\b|\bchange\b|\bcash\b|\btendered\b|\bdiscount|\bsaving|\brefund|\bcredit\b/,
-    score: 5,
+      /\b(?:(?:total|current|net|final|gross)\s+)?amount\s+(?:due|payable)\s+(?:on\s+or\s+before|by|up\s+to|before)\b|\b(?:total\s+)?(?:due|payable|net|final)\s+amount\s+(?:on\s+or\s+before|by|up\s+to|before)\b|\bnet\s+(?:amount\s+)?payable\b|\bnet\s+(?:amount\s+)?due\b|\bbalance\s+payable\b/,
+    score: 120,
   },
+
+  // 2. Late payment / After due date surcharge (Score 35) - lower than on-time total, higher than subtotal
+  {
+    pattern:
+      /\b(after|post)\s+(the\s+)?due\s+date\b|\blate\s+(fee|payment|charge|surcharge)\b|\bif\s+paid\s+after\b/,
+    score: 35,
+  },
+
+  // 3. Strong total & payable keywords (Score 100)
+  {
+    pattern:
+      /\bgrand\s+total\b|\b(?:(?:total|current|net|final|gross)\s+)?(?:amount|amt)\s+(?:due|payable)\b|\b(?:total\s+)?(?:due|payable|net|final)\s+(?:amount|amt)\b|\b(?:total|balance|net|amt|payment|current)\s+(?:due|payable)\b|\b(?:total|current)\s+charges?\b|\bnew\s+balance\b|\bplease\s+pay\b|\bpay\s+this\s+amount\b|\b(?:amount|total)\s+to\s+pay\b|\bbill\s+(?:amount|amt|total)\b|\binvoice\s+(?:total|amount|amt)\b|\btotal\s+amount\b|\bbalance\s+to\s+pay\b|\b(?:amount|amt)\s*[:=]\s*[$₹€£]?\s*\d|\btotal\s*[:=]\s*[$₹€£]?\s*\d|\btotal\s*\([^)]*\)\s*[:=]?\s*[$₹€£]?\s*\d|\bcheckout\s+total\b|\border\s+total\b|\bamount\s+to\s+be\s+paid\b/,
+    score: 100,
+  },
+
+  // 4. General total/payable keywords (Score 70)
+  { pattern: /\btotal\b|\bbalance\b|\bpayable\b/, score: 70 },
+
+  // 5. Intermediate amounts
   { pattern: /\bsub\s*-?\s*total\b/, score: 20 },
   { pattern: /\b(tax|vat|gst|cgst|sgst|igst|cess|service\s+charge|tip)\b/, score: 10 },
   { pattern: /\b(reading|consumption|units?\s+used|kwh|meter\s+no|rate\s+per)\b/, score: 5 },
 
-  // Strongest indicators of the final amount to pay.
+  // 6. Paid / Receipts (Score 5)
   {
     pattern:
-      /\bgrand\s+total\b|\b(?:(?:total|current|net|final|gross)\s+)?amount\s+(?:due|payable)\b|\b(?:total\s+)?(?:due|payable|net|final)\s+amount\b|\b(?:total|balance|net|amt|payment|current)\s+(?:due|payable)\b|\b(?:total|current)\s+charges?\b|\bnew\s+balance\b|\bnet\s+(?:amount|payable|due)\b|\bplease\s+pay\b|\bpay\s+this\s+amount\b|\b(?:amount|total)\s+to\s+pay\b|\bbill\s+(?:amount|total)\b|\binvoice\s+(?:total|amount)\b|\btotal\s+amount\b|\bbalance\s+to\s+pay\b|\bamount\s*[:=]\s*[$₹€£]?\s*\d|\btotal\s*[:=]\s*[$₹€£]?\s*\d|\btotal\s*\([^)]*\)\s*[:=]?\s*[$₹€£]?\s*\d|\bcheckout\s+total\b|\border\s+total\b/,
-    score: 100,
+      /\b(previous|last|prior)\s+(balance|bill|payment)|\bpayment\s+received|\bamount\s+paid\b|\bpaid\s*[:=]|\bchange\b|\bcash\b|\btendered\b|\bdiscount|\bsaving|\brefund|\bcredit\b/,
+    score: 5,
   },
-  { pattern: /\btotal\b|\bbalance\b|\bpayable\b|\bamount\b/, score: 70 },
+
+  // 7. Pure date lines without any money/payable keywords (Score 2)
+  {
+    pattern: /\b(?:due|bill|invoice|statement|issue|order|expiry)\s+date\b|\bdate\s*[:=]/,
+    score: 2,
+  },
 ]
 
 const KEYWORD_SCORE_FLOOR = 20 // a label at or above this may take its value from the next lines

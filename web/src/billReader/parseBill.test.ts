@@ -135,6 +135,19 @@ describe('parseBill: picks the amount to pay', () => {
     expect(parseBill('Total: $10O.OO').totalCents).toBe(10000)
     expect(parseBill('Total: S50.00').totalCents).toBe(5000)
   })
+
+  it('prefers on-time payable amount over after due date / late payment surcharge', () => {
+    const text = `
+      BESCOM Electricity Bill
+      Due Date: 20-11-2026
+      Payable Amount on or before Due Date: 1,475.00
+      Payable Amount after Due Date: 1,525.00
+    `
+    const bill = parseBill(text)
+    expect(bill.totalCents).toBe(147500)
+    expect(bill.candidates[0]?.cents).toBe(147500)
+    expect(bill.candidates[1]?.cents).toBe(152500)
+  })
 })
 
 describe('findMoney', () => {

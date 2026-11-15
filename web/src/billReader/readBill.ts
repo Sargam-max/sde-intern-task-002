@@ -239,19 +239,31 @@ async function readPdf(file: File, onProgress: (p: ReadProgress) => void) {
   for (let n = 1; n <= pageCount; n++) {
     const page = await pdf.getPage(n)
     const content = await page.getTextContent()
-    const items = content.items.flatMap((item) =>
+    const rawItems = content.items.flatMap((item) =>
       'str' in item && item.str.trim()
         ? [{ text: item.str, x: item.transform[4] ?? 0, y: item.transform[5] ?? 0 }]
         : [],
     )
-    items.sort((a, b) => b.y - a.y || a.x - b.x)
-    const lines: string[] = []
-    let lastY: number | null = null
-    for (const item of items) {
-      if (lastY === null || Math.abs(item.y - lastY) > 3) lines.push(item.text)
-      else lines[lines.length - 1] += ` ${item.text}`
-      lastY = item.y
+    rawItems.sort((a, b) => b.y - a.y)
+
+    // Cluster text items sharing the same visual row within vertical tolerance (5 points)
+    const Y_TOLERANCE = 5
+    const lineBuckets: { y: number; items: { text: string; x: number }[] }[] = []
+    for (const item of rawItems) {
+      let bucket = lineBuckets.find((b) => Math.abs(b.y - item.y) <= Y_TOLERANCE)
+      if (!bucket) {
+        bucket = { y: item.y, items: [] }
+        lineBuckets.push(bucket)
+      }
+      bucket.items.push(item)
     }
+
+    // Sort lines from top of the page to bottom, and items inside from left to right
+    lineBuckets.sort((a, b) => b.y - a.y)
+    const lines = lineBuckets.map((bucket) => {
+      bucket.items.sort((a, b) => a.x - b.x)
+      return bucket.items.map((it) => it.text).join(' ')
+    })
     pages.push(lines.join('\n'))
     onProgress({ stage: 'reading', percent: Math.round((n / pageCount) * 100) })
   }
