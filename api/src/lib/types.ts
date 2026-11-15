@@ -1,6 +1,10 @@
 // Rows as D1 returns them (snake_case) and the JSON shapes the API sends (camelCase).
 
-export type AppEnv = { Bindings: Env }
+export type AppEnv = {
+  Bindings: Env & {
+    GEMINI_API_KEY?: string
+  }
+}
 
 export type HomeRow = { id: string; name: string }
 export type MemberRow = { id: string; home_id: string; name: string }

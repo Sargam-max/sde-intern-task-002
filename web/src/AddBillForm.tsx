@@ -1,4 +1,4 @@
-import { type DragEvent, type FormEvent, useRef, useState } from 'react'
+import { type DragEvent, type FormEvent, useEffect, useRef, useState } from 'react'
 import {
   api,
   formatBytes,
@@ -51,9 +51,27 @@ export function AddBillForm({
   const [warning, setWarning] = useState<string | null>(null)
   const [geminiKeyInput, setGeminiKeyInput] = useState(() => getGeminiApiKey() ?? '')
   const [hasGeminiKey, setHasGeminiKey] = useState(() => Boolean(getGeminiApiKey()))
+  const [hasBackendKey, setHasBackendKey] = useState(false)
   const [showKeyConfig, setShowKeyConfig] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const readId = useRef(0)
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .getAiStatus()
+      .then((status) => {
+        if (!cancelled && status.hasServerKey) {
+          setHasBackendKey(true)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const isAiActive = hasGeminiKey || hasBackendKey
 
   const cents = parseDollarsToCents(amount)
   const amountProblem =
@@ -208,18 +226,24 @@ export function AddBillForm({
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '8px 12px',
-              background: hasGeminiKey ? 'rgba(16, 185, 129, 0.08)' : 'rgba(99, 102, 241, 0.06)',
+              background: isAiActive ? 'rgba(16, 185, 129, 0.08)' : 'rgba(99, 102, 241, 0.06)',
               borderRadius: '8px',
-              border: `1px solid ${hasGeminiKey ? 'rgba(16, 185, 129, 0.25)' : 'rgba(99, 102, 241, 0.15)'}`,
+              border: `1px solid ${isAiActive ? 'rgba(16, 185, 129, 0.25)' : 'rgba(99, 102, 241, 0.15)'}`,
             }}
           >
             <span
               style={{ fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              <span>{hasGeminiKey ? '✨' : '⚡'}</span>
-              <strong>{hasGeminiKey ? 'Gemini AI Vision Active' : 'Free Gemini AI Parser'}</strong>
+              <span>{isAiActive ? '✨' : '⚡'}</span>
+              <strong>
+                {isAiActive
+                  ? hasBackendKey
+                    ? 'Gemini AI Vision Active (Backend Powered)'
+                    : 'Gemini AI Vision Active (Client Key)'
+                  : 'Free Gemini AI Parser'}
+              </strong>
               <span className="muted">
-                ({hasGeminiKey ? '100% precision on payable amounts' : 'Optional'})
+                ({isAiActive ? '100% precision on payable amounts' : 'Optional'})
               </span>
             </span>
             <button
@@ -228,7 +252,7 @@ export function AddBillForm({
               onClick={() => setShowKeyConfig((s) => !s)}
               style={{ fontSize: '0.8rem' }}
             >
-              {showKeyConfig ? 'Close' : hasGeminiKey ? '⚙ Key Settings' : '➕ Connect Free Key'}
+              {showKeyConfig ? 'Close' : isAiActive ? '⚙ Key Settings' : '➕ Connect Free Key'}
             </button>
           </div>
 
@@ -282,16 +306,19 @@ export function AddBillForm({
                 )}
               </div>
               <p className="muted small" style={{ margin: '6px 0 0', fontSize: '0.75rem' }}>
-                Get a free key in 10 seconds at{' '}
-                <a
-                  href="https://aistudio.google.com/apikey"
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ color: 'var(--primary)', textDecoration: 'underline' }}
-                >
-                  aistudio.google.com/apikey
-                </a>
-                . Saved locally in your browser.
+                {hasBackendKey
+                  ? 'Cloudflare Worker backend has GEMINI_API_KEY configured. You can also override it with a custom key above.'
+                  : 'Get a free key in 10 seconds at '}
+                {!hasBackendKey && (
+                  <a
+                    href="https://aistudio.google.com/apikey"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: 'var(--primary)', textDecoration: 'underline' }}
+                  >
+                    aistudio.google.com/apikey
+                  </a>
+                )}
               </p>
             </div>
           )}

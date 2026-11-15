@@ -71,7 +71,7 @@ Only output the JSON object, nothing else.
 `.trim()
 
   // Try gemini-2.5-flash first (most capable free multimodal model), then fallback
-  const models = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-1.5-flash']
+  const models = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite']
   let lastError: Error | null = null
 
   for (const model of models) {
@@ -106,7 +106,12 @@ Only output the JSON object, nothing else.
         throw new Error(`Gemini API error (${response.status}): ${errorBody}`)
       }
 
-      const json = await response.json()
+      const json = (await response.json()) as {
+        candidates?: Array<{
+          content?: { parts?: Array<{ text?: string }> }
+          text?: string
+        }>
+      }
       const textOutput =
         json.candidates?.[0]?.content?.parts?.[0]?.text ?? json.candidates?.[0]?.text ?? ''
 

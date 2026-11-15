@@ -135,12 +135,13 @@ The assignment specifies 7 critical edge cases that must be handled safely. Here
 
 Instead of forcing roommates to type every bill by hand, the app provides a **dual-engine processing pipeline** that automatically extracts the title, total payable amount, and line items:
 
-### Engine 1: Google Gemini 2.5 Flash Multimodal AI Vision
+### Engine 1: Google Gemini 2.5 Flash Multimodal AI Vision (Backend & Client)
 
-- **Semantic Understanding**: Sends the bill (PDF or image) directly to Google Gemini's multimodal vision model, extracting exact payable amounts with 100% precision regardless of complex column layouts or foreign receipt formats.
-- **On-Time vs Late Fee Intelligence**: Specifically programmed to distinguish between regular on-time payable amounts (e.g., `"Amount Payable on or before Due Date: ₹ 1,475.00"`) and late payment surcharges (`"Amount Payable after Due Date: ₹ 1,525.00"`).
-- **Vendor & Due Date Detection**: Automatically detects the provider name (_"BESCOM Electricity"_, _"Airtel Broadband"_, _"Water Board"_) and populates the bill title and due dates.
-- **Browser Privacy**: Works with free Google AI Studio keys (`AIza...`) stored securely in the user's browser `localStorage` or local `.env` (`VITE_GEMINI_API_KEY`).
+- **Backend-Powered Parsing (`POST /api/bills/parse`)**: Files can be sent straight to the Cloudflare Worker backend, which parses the invoice using the server-side `GEMINI_API_KEY` (configured in `api/.dev.vars` or Cloudflare Worker secrets).
+- **Semantic Financial Understanding**: Reads PDFs and images (PNG, JPEG, WebP) with Gemini 2.5 Flash / Flash Latest, returning exact vendor title, payable amount, currency, and due date without regex mistakes.
+- **On-Time vs Late Fee Intelligence**: Programmed with strict prompt engineering to distinguish between on-time payable amounts (e.g., `"Amount Payable on or before Due Date: ₹ 1,475.00"`) and late payment fees (`"Amount Payable after Due Date: ₹ 1,525.00"`).
+- **Flexible Dual Support**: Works seamlessly via the Cloudflare Worker backend or directly in the browser via client-side API key configuration (`localStorage` or `web/.env`).
+- **Health & Status Check (`GET /api/bills/ai-status`)**: Enables frontend to automatically detect when server-side AI parsing is active.
 
 ### Engine 2: Client-Side WebAssembly OCR (100% Offline & Private)
 
@@ -190,9 +191,9 @@ The frontend was completely rebuilt using a fintech-grade design system:
 # 1. Install dependencies across the workspace
 pnpm install
 
-# 2. (Optional) Set your free Gemini API key for AI multimodal parsing
-# Create web/.env with:
-# VITE_GEMINI_API_KEY="your-gemini-key"
+# 2. (Optional) Configure Gemini API key for backend AI invoice processing
+# Create api/.dev.vars (or copy api/.dev.vars.example):
+GEMINI_API_KEY=your_gemini_api_key_here
 
 # 3. Start both the Cloudflare Worker API (:8787) and Vite frontend (:5173)
 pnpm dev
@@ -212,7 +213,7 @@ pnpm check
 # Run TypeScript typechecks on API and Web packages
 pnpm typecheck
 
-# Run full Vitest suite (62 API tests + 40 Web tests)
+# Run full Vitest suite (66 API tests + 42 Web tests)
 pnpm test
 
 # Verify production Vite build (including WebAssembly OCR bundles)
@@ -221,10 +222,10 @@ pnpm build
 
 | Screening Suite              | Command          | Result                                                 |
 | ---------------------------- | ---------------- | ------------------------------------------------------ |
-| **Linter / Formatter**       | `pnpm check`     | **Passed** (48 files clean, 0 errors, 0 warnings)      |
+| **Linter / Formatter**       | `pnpm check`     | **Passed** (51 files clean, 0 errors, 0 warnings)      |
 | **TypeScript Typecheck**     | `pnpm typecheck` | **Passed** (API and Web clean)                         |
-| **Unit & Integration Tests** | `pnpm test`      | **Passed** (All 102 tests pass: 62 in API, 40 in Web)  |
-| **Production Build**         | `pnpm build`     | **Passed** (Bundles assets + WASM OCR cores in ~690ms) |
+| **Unit & Integration Tests** | `pnpm test`      | **Passed** (All 108 tests pass: 66 in API, 42 in Web)  |
+| **Production Build**         | `pnpm build`     | **Passed** (Bundles assets + WASM OCR cores in ~500ms) |
 
 ---
 
@@ -243,4 +244,4 @@ When recording your submission walkthrough video, follow this streamlined 3-minu
    - Expand the **Dev Tool: Test the edge cases** panel at the bottom of the page.
    - Click through the live buttons: show 422 error on empty household, invalid decimal/negative rejection, 409 conflict on simulated race conditions, and graceful timeout recovery.
 4. **Conclusion & Screenings (2:45 - 3:00)**:
-   - Show that all 102 automated tests are passing in terminal (`pnpm test`), Biome linting is clean, and the production build succeeds.
+   - Show that all 108 automated tests are passing in terminal (`pnpm test`), Biome linting is clean, and the production build succeeds.

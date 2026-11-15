@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { ApiError } from './lib/errors'
 import type { AppEnv } from './lib/types'
 import { API_VERSION } from './lib/version'
+import { ai } from './routes/ai'
 import { attachments } from './routes/attachments'
 import { bills } from './routes/bills'
 import { homes } from './routes/homes'
@@ -17,6 +18,7 @@ app.get('/', (c) =>
 app.route('/api/homes', homes)
 app.route('/api', bills)
 app.route('/api', attachments)
+app.route('/api', ai)
 
 // Every error leaves the API as JSON: { "error": "message" }.
 app.notFound((c) => c.json({ error: 'route not found' }, 404))

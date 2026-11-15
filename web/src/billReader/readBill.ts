@@ -1,5 +1,6 @@
+import { api } from '../api'
 import { type ParsedBill, parseBill } from './parseBill'
-import { hasGeminiApiKey, readWithGemini } from './readWithGemini'
+import { getGeminiApiKey, hasGeminiApiKey, readWithGemini } from './readWithGemini'
 
 /**
  * Reads a bill file in the browser and finds its total.
@@ -86,15 +87,36 @@ export async function readBill(
   file: File,
   onProgress: (progress: ReadProgress) => void = () => {},
 ): Promise<ReadResult> {
-  // If Gemini API is available, prioritize multimodal AI understanding
+  // 1. Primary: Server-side Gemini AI Vision (via Cloudflare backend)
+  try {
+    onProgress({ stage: 'reading', percent: 30 })
+    const clientKey = getGeminiApiKey()
+    const backendResult = await api.parseBillWithAi(file, clientKey)
+    onProgress({ stage: 'reading', percent: 100 })
+    return {
+      title: backendResult.title,
+      totalCents: backendResult.totalCents,
+      candidates: backendResult.candidates,
+      text: backendResult.text,
+      method: 'gemini-ai',
+    }
+  } catch (backendErr) {
+    // If backend doesn't have a key or returned an error, check if client can run direct Gemini
+    console.info(
+      'Backend Gemini parse skipped or failed, checking client alternatives:',
+      backendErr,
+    )
+  }
+
+  // 2. Secondary: Direct browser-side Gemini API if client key is configured
   if (hasGeminiApiKey()) {
     try {
-      onProgress({ stage: 'reading', percent: 40 })
+      onProgress({ stage: 'reading', percent: 50 })
       const aiResult = await readWithGemini(file)
       onProgress({ stage: 'reading', percent: 100 })
       return { ...aiResult, method: 'gemini-ai' }
     } catch (err) {
-      console.warn('Gemini AI read failed, falling back to local OCR/PDF reader:', err)
+      console.warn('Client Gemini AI read failed, falling back to local OCR/PDF reader:', err)
       // Fall through to local parsing
     }
   }

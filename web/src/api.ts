@@ -22,6 +22,17 @@ export type Bill = {
 }
 export type Balance = { memberId: string; name: string; outstandingCents: number }
 
+export type BackendParsedBill = {
+  title: string | null
+  totalCents: number | null
+  payableAmount: number | null
+  currency: string
+  dueDate: string | null
+  explanation: string | null
+  candidates: Array<{ cents: number; line: string; score: number }>
+  text: string
+}
+
 export class ApiError extends Error {
   readonly status: number
 
@@ -244,6 +255,46 @@ export const api = {
       isShare,
       { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey } },
     ),
+
+  getAiStatus: async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch('/api/bills/ai-status', { signal })
+      if (!res.ok) return { available: false, hasServerKey: false }
+      return (await res.json()) as { available: boolean; hasServerKey: boolean; model?: string }
+    } catch {
+      return { available: false, hasServerKey: false }
+    }
+  },
+
+  parseBillWithAi: async (
+    file: File,
+    apiKeyOverride?: string | null,
+    signal?: AbortSignal,
+  ): Promise<BackendParsedBill> => {
+    const form = new FormData()
+    form.append('file', file)
+    const headers: Record<string, string> = {}
+    if (apiKeyOverride?.trim()) {
+      headers['x-gemini-key'] = apiKeyOverride.trim()
+    }
+    const timeout = AbortSignal.timeout(TIMEOUT_MS * 2)
+    const res = await fetch('/api/bills/parse', {
+      method: 'POST',
+      headers,
+      body: form,
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    })
+    const json = (await res.json().catch(() => null)) as {
+      ok?: boolean
+      error?: string
+      data?: BackendParsedBill
+    } | null
+
+    if (!res.ok || !json?.ok || !json?.data) {
+      throw new ApiError(res.status, json?.error || `AI parsing failed (${res.status})`)
+    }
+    return json.data
+  },
 }
 
 // ---- files ----------------------------------------------------------------
