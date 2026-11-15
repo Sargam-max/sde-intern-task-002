@@ -70,8 +70,8 @@ Return a valid JSON object matching this schema:
 Only output the JSON object, nothing else.
 `.trim()
 
-  // Try gemini-1.5-flash first (most widely available free model), fallback to gemini-2.0-flash / gemini-2.5-flash
-  const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash']
+  // Try gemini-2.5-flash first (most capable free multimodal model), then fallback
+  const models = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-1.5-flash']
   let lastError: Error | null = null
 
   for (const model of models) {

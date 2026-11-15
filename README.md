@@ -2,17 +2,17 @@
 
 A full-stack bill-splitting application designed for shared households, built on Cloudflare Workers (Hono), Cloudflare D1 (SQLite), React 19, and Vite.
 
-This project solves the problem of tracking shared living expenses without floating-point calculation errors, concurrency race conditions, or orphaned data. It includes an in-browser OCR bill scanner that works completely offline with zero third-party data leaks.
+This project solves the problem of tracking shared living expenses without floating-point calculation errors, concurrency race conditions, or orphaned data. It includes an intelligent bill parser supporting both client-side WebAssembly OCR (offline) and Google Gemini AI multimodal vision for 100% accurate invoice parsing.
 
 ---
 
 ## UI Preview
 
-|                  Household Dashboard                   |                Offline In-Browser OCR Scanner                |
-| :----------------------------------------------------: | :----------------------------------------------------------: |
-| ![Household Dashboard](docs/screenshots/dashboard.png) | ![Offline OCR Scanner](docs/screenshots/ocr_bill_reader.png) |
+|                  Household Dashboard                   |          AI Vision & In-Browser OCR Scanner           |
+| :----------------------------------------------------: | :---------------------------------------------------: |
+| ![Household Dashboard](docs/screenshots/dashboard.png) | ![Bill Scanner](docs/screenshots/ocr_bill_reader.png) |
 
-_Modern fintech UI with real-time financial KPI cards, settlement progress bars, deterministic avatar badges, and in-browser WebAssembly OCR._
+_Modern fintech UI with real-time financial KPI cards, settlement progress bars, deterministic avatar badges, Google Gemini AI vision parsing, and in-browser WebAssembly OCR._
 
 ---
 
@@ -21,8 +21,9 @@ _Modern fintech UI with real-time financial KPI cards, settlement progress bars,
 ```
 ┌────────────────────────────────────────────────────────┐
 │                   React 19 Frontend                    │
-│   • TanStack Router • Optimistic UI • Responsive CSS    │
-│   • Client-Side OCR: Tesseract.js (PSM.AUTO) + PDF.js  │
+│   • TanStack Router • Optimistic UI • Responsive CSS   │
+│   • Client-Side OCR: Tesseract.js (Otsu) + PDF.js      │
+│   • Multimodal AI: Google Gemini 2.5 Flash Parser      │
 └───────────────────────────┬────────────────────────────┘
                             │ JSON / Multipart HTTP
                             ▼
