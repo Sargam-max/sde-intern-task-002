@@ -29,21 +29,27 @@ const MAX_CENTS = 99_999_999_999 // 999,999,999.99: anything bigger is not a hou
 // Higher score = more likely to be the amount to pay. Checked in order; first match wins.
 const LINE_RULES: { pattern: RegExp; score: number }[] = [
   // Amounts that are about something else, or not the amount to pay now.
-  { pattern: /\b(after|post)\s+(the\s+)?due\s+date\b|\blate\s+(fee|payment)/, score: 30 },
+  {
+    pattern: /\b(?:due|bill|invoice|statement|issue|order|expiry)\s+date\b|\bdate\s*[:=]/,
+    score: 2,
+  },
+  { pattern: /\b(after|post)\s+(the\s+)?due\s+date\b|\blate\s+(fee|payment|charge)/, score: 30 },
   {
     pattern:
-      /\b(previous|last|prior)\s+(balance|bill|payment)|\bpayment\s+received|\bpaid\b|\bchange\b|\bcash\b|\btendered\b|\bdiscount|\bsaving/,
+      /\b(previous|last|prior)\s+(balance|bill|payment)|\bpayment\s+received|\bpaid\b|\bchange\b|\bcash\b|\btendered\b|\bdiscount|\bsaving|\brefund|\bcredit\b/,
     score: 5,
   },
   { pattern: /\bsub\s*-?\s*total\b/, score: 20 },
-  { pattern: /\b(tax|vat|gst|cgst|sgst|igst|cess)\b/, score: 10 },
+  { pattern: /\b(tax|vat|gst|cgst|sgst|igst|cess|service\s+charge|tip)\b/, score: 10 },
+  { pattern: /\b(reading|consumption|units?\s+used|kwh|meter\s+no|rate\s+per)\b/, score: 5 },
+
   // Strongest indicators of the final amount to pay.
   {
     pattern:
-      /\bgrand\s+total\b|\b(?:(?:total|current|net|final)\s+)?amount\s+(?:due|payable)\b|\b(?:total|balance|net|amt|payment|current)\s+(?:due|payable)\b|\b(?:total|current)\s+charges?\b|\bnew\s+balance\b|\bnet\s+amount\b|\bplease\s+pay\b|\bpay\s+this\s+amount\b|\b(?:amount|total)\s+to\s+pay\b|\bbill\s+(?:amount|total)\b|\binvoice\s+total\b|\btotal\s+amount\b|\bbalance\s+to\s+pay\b|\bamount\s*[:=]\s*\d|\btotal\s*[:=]\s*[$₹€£]?\s*\d/,
+      /\bgrand\s+total\b|\b(?:(?:total|current|net|final|gross)\s+)?amount\s+(?:due|payable)\b|\b(?:total\s+)?(?:due|payable|net|final)\s+amount\b|\b(?:total|balance|net|amt|payment|current)\s+(?:due|payable)\b|\b(?:total|current)\s+charges?\b|\bnew\s+balance\b|\bnet\s+(?:amount|payable|due)\b|\bplease\s+pay\b|\bpay\s+this\s+amount\b|\b(?:amount|total)\s+to\s+pay\b|\bbill\s+(?:amount|total)\b|\binvoice\s+(?:total|amount)\b|\btotal\s+amount\b|\bbalance\s+to\s+pay\b|\bamount\s*[:=]\s*[$₹€£]?\s*\d|\btotal\s*[:=]\s*[$₹€£]?\s*\d|\btotal\s*\([^)]*\)\s*[:=]?\s*[$₹€£]?\s*\d|\bcheckout\s+total\b|\border\s+total\b/,
     score: 100,
   },
-  { pattern: /\btotal\b|\bbalance\b|\bpayable\b/, score: 60 },
+  { pattern: /\btotal\b|\bbalance\b|\bpayable\b|\bamount\b/, score: 70 },
 ]
 
 const KEYWORD_SCORE_FLOOR = 20 // a label at or above this may take its value from the next lines
@@ -51,8 +57,9 @@ const PLAIN_VALUE_SCORE = 1
 
 // A number-looking token, with optional currency symbols in front or trailing.
 // Handles $, ₹, €, £, Rs, INR, USD, EUR, GBP, and Indian notation "504/-".
+// Also allows "S" or "s" prefix if followed immediately by digit and decimal (OCR mistaking $ for S).
 const MONEY =
-  /(?<![\w.,/-])((?:[$₹€£]|rs\.?|inr|usd|eur|gbp)\s*)?(\d(?:[\d.,]*\d)?)(?:\s*(?:[$₹€£]|rs\.?|inr|usd|eur|gbp|\/[-=]?|\/-))?(?![\w/-])/gi
+  /(?<![\w.,/-])((?:[$₹€£]|rs\.?|inr|usd|eur|gbp|[Ss](?=\d+[.,]\d{2}))\s*)?(\d(?:[\d.,Oo]*\d)?)(?:\s*(?:[$₹€£]|rs\.?|inr|usd|eur|gbp|\/[-=]?|\/-))?(?![\w/-])/gi
 
 /**
  * Turns "1,234.56", "1.234,56", "1,23,456.50", "123,45", "12.5" or "504" into cents.
@@ -60,13 +67,22 @@ const MONEY =
  * separator when 3 digits follow. Returns null for anything that does not read as money.
  */
 export function parseAmountToken(token: string): { cents: number; hasDecimals: boolean } | null {
-  const lastSep = Math.max(token.lastIndexOf('.'), token.lastIndexOf(','))
-  let integerPart = token
+  // Normalize OCR typos in numbers: e.g. "10O.00" -> "100.00"
+  let cleanToken = token
+  if (/^[Ss]\d/.test(cleanToken)) {
+    cleanToken = cleanToken.slice(1)
+  }
+  cleanToken = cleanToken
+    .replace(/(?<=\d|\.)[Oo](?=\d|\.|\b)/g, '0')
+    .replace(/(?<=\b)[Oo](?=\d)/g, '0')
+
+  const lastSep = Math.max(cleanToken.lastIndexOf('.'), cleanToken.lastIndexOf(','))
+  let integerPart = cleanToken
   let fraction = ''
   if (lastSep !== -1) {
-    const after = token.slice(lastSep + 1)
+    const after = cleanToken.slice(lastSep + 1)
     if (after.length <= 2) {
-      integerPart = token.slice(0, lastSep)
+      integerPart = cleanToken.slice(0, lastSep)
       fraction = after.padEnd(2, '0')
     } else if (after.length !== 3) {
       return null
@@ -82,7 +98,12 @@ export function parseAmountToken(token: string): { cents: number; hasDecimals: b
     if (!western && !indian) return null
   }
   // A decimal separator must differ from the thousands separator ("1.234.56" is noise).
-  if (fraction && separators.has(token.charAt(lastSep))) return null
+  if (fraction && separators.has(cleanToken.charAt(lastSep))) return null
+
+  // Plain integers without grouping or decimals that exceed 6 digits are account numbers or phone numbers
+  if (!fraction && separators.size === 0 && integerPart.length > 6) {
+    return null
+  }
 
   const units = Number(integerPart.replace(/[.,]/g, ''))
   const cents = units * 100 + (fraction ? Number(fraction) : 0)
@@ -98,24 +119,36 @@ function scoreLine(line: string): number | null {
   return null
 }
 
-function looksLikeDateOrTime(line: string): boolean {
-  return /\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b|\b\d{1,2}:\d{2}\b/.test(line)
-}
-
 type MoneyValue = { cents: number; explicit: boolean }
 
 /** Every money value on a line, in cents. `explicit` = had a currency sign or decimals. */
 export function findMoney(line: string): MoneyValue[] {
-  // Normalize OCR artifacts where decimal dots or commas have accidental whitespace: "504 . 00" -> "504.00"
-  const cleaned = line.replace(/(\d+)\s+([.,])\s+(\d{1,2})\b/g, '$1$2$3')
+  // Normalize OCR artifacts where decimal dots or commas have accidental whitespace
+  let cleaned = line
+    .replace(/(\d+)\s+([.,])\s*(\d{1,2})\b/g, '$1$2$3')
+    .replace(/(\d+)\s*([.,])\s+(\d{1,2})\b/g, '$1$2$3')
+
+  // In numbers like 10O.00 or 10.OO, letter O is an OCR zero
+  cleaned = cleaned.replace(/(?<=\d|\.)[Oo]+(?=\d|\.|\b)/g, (m) => '0'.repeat(m.length))
+
+  // Remove date and time patterns from consideration
+  cleaned = cleaned.replace(/\b\d{1,4}[/.-]\d{1,2}[/.-]\d{2,4}\b/g, ' ')
+  cleaned = cleaned.replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, ' ')
+
   const values: MoneyValue[] = []
   for (const match of cleaned.matchAll(MONEY)) {
-    const parsed = parseAmountToken(match[2] ?? '')
-    if (parsed)
+    const rawNum = match[2] ?? ''
+    const parsed = parseAmountToken(rawNum)
+    if (parsed) {
+      // Disallow 4-digit numbers that look like current/recent years (2020..2035) without currency/decimals
+      if (!parsed.hasDecimals && !match[1] && parsed.cents >= 202000 && parsed.cents <= 203500) {
+        continue
+      }
       values.push({
         cents: parsed.cents,
         explicit: Boolean(match[1]) || parsed.hasDecimals,
       })
+    }
   }
   return values
 }
@@ -159,19 +192,21 @@ export function parseBill(text: string): ParsedBill {
 
   lines.forEach((line, index) => {
     const lineScore = scoreLine(line)
-    const hasStrongKeyword = lineScore !== null && lineScore >= 60
-    const values =
-      looksLikeDateOrTime(line) && !hasStrongKeyword
-        ? findMoney(line).filter((v) => v.explicit)
-        : findMoney(line)
+    const rawValues = findMoney(line)
+    const explicitValues = rawValues.filter((v) => v.explicit)
+    // If there is an explicit currency/decimal on this line, never pick a plain integer (like qty or items count)
+    const values = explicitValues.length > 0 ? explicitValues : rawValues
 
     if (values.length > 0) {
       // A plain number on a line without any keyword is only kept if it looks like money.
-      const usable = lineScore === null ? values.filter((v) => v.explicit) : values
-      // The value at the end of a line is usually the amount ("Total ...... 41.20").
-      const last = usable.at(-1)
-      if (last) found.push({ cents: last.cents, line, score: lineScore ?? PLAIN_VALUE_SCORE })
-      return
+      const usable = lineScore === null ? explicitValues : values
+      const first = usable[0]
+      if (first) {
+        // On a total line, the total amount is typically the largest money value
+        const bestOnLine = usable.reduce((p, c) => (c.cents > p.cents ? c : p), first)
+        found.push({ cents: bestOnLine.cents, line, score: lineScore ?? PLAIN_VALUE_SCORE })
+        return
+      }
     }
 
     // "Amount due" on one line and "504" on subsequent lines (handling table cells and blank dividers)
@@ -181,10 +216,13 @@ export function parseBill(text: string): ParsedBill {
         if (!next) break
         // Skip empty lines or pure punctuation lines (e.g. ":", "-", "|")
         if (/^[:|\-_=.]+$/.test(next.trim())) continue
-        const nextValues = findMoney(next)
-        const lastVal = nextValues.at(-1)
-        if (lastVal) {
-          found.push({ cents: lastVal.cents, line: `${line} ${next}`, score: lineScore - offset })
+        const nextRaw = findMoney(next)
+        const nextExplicit = nextRaw.filter((v) => v.explicit)
+        const nextValues = nextExplicit.length > 0 ? nextExplicit : nextRaw
+        const firstNext = nextValues[0]
+        if (firstNext) {
+          const bestNext = nextValues.reduce((p, c) => (c.cents > p.cents ? c : p), firstNext)
+          found.push({ cents: bestNext.cents, line: `${line} ${next}`, score: lineScore - offset })
           break
         }
       }

@@ -80,7 +80,9 @@ export function AddBillForm({
     setMode(next)
     setError(null)
     setWarning(null)
-    if (next === 'type') {
+    if (next === 'upload') {
+      import('./billReader/readBill').then((m) => m.preloadOcr()).catch(() => {})
+    } else {
       clearFile()
     }
   }
@@ -185,6 +187,9 @@ export function AddBillForm({
           aria-selected={mode === 'upload'}
           className={mode === 'upload' ? 'active' : ''}
           onClick={() => switchMode('upload')}
+          onMouseEnter={() => {
+            import('./billReader/readBill').then((m) => m.preloadOcr()).catch(() => {})
+          }}
         >
           ⬆ Upload & auto-read bill (PDF/Photo)
         </button>

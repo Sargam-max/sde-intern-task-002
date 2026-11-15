@@ -114,6 +114,27 @@ describe('parseBill: picks the amount to pay', () => {
     const text = 'TOTAL AMOUNT DUE\n:\n504'
     expect(parseBill(text).totalCents).toBe(50400)
   })
+
+  it('handles "Due Amount" and "Payable Amount" label variants', () => {
+    expect(parseBill('Due Amount: $504.00').totalCents).toBe(50400)
+    expect(parseBill('Payable Amount: Rs. 1500/-').totalCents).toBe(150000)
+    expect(parseBill('Net Payable Amount: ₹ 1,234.50').totalCents).toBe(123450)
+  })
+
+  it('prefers explicit money values over plain integers like item counts on total line', () => {
+    const text = 'TOTAL AMOUNT DUE: $ 504.00    ITEMS: 2'
+    expect(parseBill(text).totalCents).toBe(50400)
+  })
+
+  it('does not confuse year numbers in dates with bill amounts', () => {
+    const text = 'Total $50.00   DATE: 15/11/2026'
+    expect(parseBill(text).totalCents).toBe(5000)
+  })
+
+  it('corrects OCR typos in numbers such as letter O and S', () => {
+    expect(parseBill('Total: $10O.OO').totalCents).toBe(10000)
+    expect(parseBill('Total: S50.00').totalCents).toBe(5000)
+  })
 })
 
 describe('findMoney', () => {
