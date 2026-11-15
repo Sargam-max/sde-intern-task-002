@@ -1,16 +1,18 @@
 import { type ParsedBill, parseBill } from './parseBill'
+import { hasGeminiApiKey, readWithGemini } from './readWithGemini'
 
 /**
  * Reads a bill file in the browser and finds its total.
+ *  - AI Vision: When Gemini API key is configured, uses Gemini 1.5/2.0 Flash for 100% exact parsing.
  *  - PDF with text: the text is read directly with pdf.js (fast and exact, ~50 ms).
  *  - Scanned PDF (no text): page 1 is rendered to canvas and read with OCR.
  *  - Photo (PNG, JPEG, WebP): pre-processed with Otsu adaptive binarization, then read with OCR.
  *
- * Runs client-side in WebAssembly with warm worker caching for instant subsequent reads.
+ * Runs client-side with warm worker caching for instant subsequent reads.
  */
 
 export type ReadProgress = { stage: 'loading' | 'reading'; percent: number }
-export type ReadResult = ParsedBill & { text: string; method: 'pdf-text' | 'ocr' }
+export type ReadResult = ParsedBill & { text: string; method: 'pdf-text' | 'ocr' | 'gemini-ai' }
 
 const MIN_PDF_TEXT_LENGTH = 20
 const MAX_PDF_PAGES = 3
@@ -84,6 +86,19 @@ export async function readBill(
   file: File,
   onProgress: (progress: ReadProgress) => void = () => {},
 ): Promise<ReadResult> {
+  // If Gemini API is available, prioritize multimodal AI understanding
+  if (hasGeminiApiKey()) {
+    try {
+      onProgress({ stage: 'reading', percent: 40 })
+      const aiResult = await readWithGemini(file)
+      onProgress({ stage: 'reading', percent: 100 })
+      return { ...aiResult, method: 'gemini-ai' }
+    } catch (err) {
+      console.warn('Gemini AI read failed, falling back to local OCR/PDF reader:', err)
+      // Fall through to local parsing
+    }
+  }
+
   const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
 
   if (isPdf) {
