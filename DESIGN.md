@@ -73,7 +73,7 @@ The palette is engineered around an authoritative **Deep Indigo & Violet** core,
 
 ## 3. Typography Hierarchy & Number Formatting
 
-Typography uses a pairing of **Plus Jakarta Sans** for modern humanist geometric headings and UI controls, and **JetBrains Mono** for all monetary figures, currency amounts, and mathematical breakdowns.
+Typography uses a tri-tier system: **Outfit** for modern geometric display headings and branding, **Plus Jakarta Sans** for crisp body UI controls, and **JetBrains Mono** for all monetary figures, currency amounts, and mathematical breakdowns.
 
 ```
 Type Scale:
