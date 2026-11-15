@@ -1,4 +1,4 @@
-import { type DragEvent, type FormEvent, useEffect, useRef, useState } from 'react'
+import { type DragEvent, type FormEvent, useRef, useState } from 'react'
 import {
   api,
   formatBytes,
@@ -10,7 +10,6 @@ import {
 import type { AmountCandidate } from './billReader/parseBill'
 import { prepareUpload } from './billReader/prepareUpload'
 import type { ReadProgress, ReadResult } from './billReader/readBill'
-import { getGeminiApiKey, setGeminiApiKey } from './billReader/readWithGemini'
 import { previewSplit } from './split'
 
 type Mode = 'type' | 'upload'
@@ -49,29 +48,8 @@ export function AddBillForm({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
-  const [geminiKeyInput, setGeminiKeyInput] = useState(() => getGeminiApiKey() ?? '')
-  const [hasGeminiKey, setHasGeminiKey] = useState(() => Boolean(getGeminiApiKey()))
-  const [hasBackendKey, setHasBackendKey] = useState(false)
-  const [showKeyConfig, setShowKeyConfig] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const readId = useRef(0)
-
-  useEffect(() => {
-    let cancelled = false
-    api
-      .getAiStatus()
-      .then((status) => {
-        if (!cancelled && status.hasServerKey) {
-          setHasBackendKey(true)
-        }
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const isAiActive = hasGeminiKey || hasBackendKey
 
   const cents = parseDollarsToCents(amount)
   const amountProblem =
@@ -219,110 +197,6 @@ export function AddBillForm({
 
       {mode === 'upload' && (
         <>
-          <div
-            style={{
-              margin: '0 0 10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '8px 12px',
-              background: isAiActive ? 'rgba(16, 185, 129, 0.08)' : 'rgba(99, 102, 241, 0.06)',
-              borderRadius: '8px',
-              border: `1px solid ${isAiActive ? 'rgba(16, 185, 129, 0.25)' : 'rgba(99, 102, 241, 0.15)'}`,
-            }}
-          >
-            <span
-              style={{ fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <span>{isAiActive ? '✨' : '⚡'}</span>
-              <strong>
-                {isAiActive
-                  ? hasBackendKey
-                    ? 'Gemini AI Vision Active (Backend Powered)'
-                    : 'Gemini AI Vision Active (Client Key)'
-                  : 'Free Gemini AI Parser'}
-              </strong>
-              <span className="muted">
-                ({isAiActive ? '100% precision on payable amounts' : 'Optional'})
-              </span>
-            </span>
-            <button
-              type="button"
-              className="link small"
-              onClick={() => setShowKeyConfig((s) => !s)}
-              style={{ fontSize: '0.8rem' }}
-            >
-              {showKeyConfig ? 'Close' : isAiActive ? '⚙ Key Settings' : '➕ Connect Free Key'}
-            </button>
-          </div>
-
-          {showKeyConfig && (
-            <div
-              className="card"
-              style={{ padding: '12px', margin: '0 0 12px', background: 'var(--surface)' }}
-            >
-              <label
-                htmlFor="gemini-key-input"
-                className="input-label small"
-                style={{ marginBottom: '4px' }}
-              >
-                Google AI Studio API Key (Free Tier)
-              </label>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  id="gemini-key-input"
-                  type="password"
-                  value={geminiKeyInput}
-                  onChange={(e) => setGeminiKeyInput(e.target.value)}
-                  placeholder="Paste your AIza... key here"
-                  style={{ flex: 1, padding: '6px 10px', fontSize: '0.85rem' }}
-                />
-                <button
-                  type="button"
-                  style={{ padding: '6px 14px', fontSize: '0.85rem' }}
-                  onClick={() => {
-                    const trimmed = geminiKeyInput.trim()
-                    setGeminiApiKey(trimmed || null)
-                    setHasGeminiKey(Boolean(trimmed))
-                    setShowKeyConfig(false)
-                  }}
-                >
-                  Save
-                </button>
-                {hasGeminiKey && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    style={{ padding: '6px 10px', fontSize: '0.85rem' }}
-                    onClick={() => {
-                      setGeminiApiKey(null)
-                      setGeminiKeyInput('')
-                      setHasGeminiKey(false)
-                      setShowKeyConfig(false)
-                    }}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              <p className="muted small" style={{ margin: '6px 0 0', fontSize: '0.75rem' }}>
-                {hasBackendKey
-                  ? 'Cloudflare Worker backend has GEMINI_API_KEY configured. You can also override it with a custom key above.'
-                  : 'Get a free key in 10 seconds at '}
-                {!hasBackendKey && (
-                  <a
-                    href="https://aistudio.google.com/apikey"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ color: 'var(--primary)', textDecoration: 'underline' }}
-                  >
-                    aistudio.google.com/apikey
-                  </a>
-                )}
-              </p>
-            </div>
-          )}
-
           <button
             type="button"
             className={`dropzone${dragging ? ' dragging' : ''}`}
@@ -520,7 +394,7 @@ function ReadStatus({
         <summary className="muted small">
           Text read from the bill (
           {result.method === 'gemini-ai'
-            ? '✨ Gemini AI'
+            ? 'AI parsed'
             : result.method === 'ocr'
               ? 'OCR'
               : 'PDF text'}

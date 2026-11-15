@@ -8,11 +8,12 @@ import type { ParsedBill } from './parseBill'
 
 export function getGeminiApiKey(): string | null {
   if (typeof window === 'undefined') return null
-  const stored = localStorage.getItem('gemini_api_key')
-  if (stored?.trim()) return stored.trim()
   const envKey = (import.meta as unknown as { env?: { VITE_GEMINI_API_KEY?: string } }).env
     ?.VITE_GEMINI_API_KEY
-  return envKey?.trim() || null
+  if (envKey?.trim()) return envKey.trim()
+  const stored = localStorage.getItem('gemini_api_key')
+  if (stored?.trim()) return stored.trim()
+  return null
 }
 
 export function setGeminiApiKey(key: string | null): void {

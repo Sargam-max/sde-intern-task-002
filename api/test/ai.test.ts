@@ -23,16 +23,14 @@ describe('AI bill parsing endpoint', () => {
     const res = await exports.default.fetch(
       new Request('http://localhost/api/bills/parse', {
         method: 'POST',
+        headers: { 'x-gemini-key': 'none' },
         body: form,
       }),
     )
 
-    // In tests env, GEMINI_API_KEY might not be bound unless configured
-    // If no key is configured, it must return 400
-    if (res.status === 400) {
-      const json = (await res.json()) as { error: string }
-      expect(json.error).toMatch(/Gemini API key is not configured/i)
-    }
+    expect(res.status).toBe(400)
+    const json = (await res.json()) as { error: string }
+    expect(json.error).toMatch(/Gemini API key is not configured/i)
   })
 
   it('rejects POST /api/bills/parse if file is missing in multipart', async () => {

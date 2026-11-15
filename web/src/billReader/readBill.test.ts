@@ -32,14 +32,13 @@ describe('readBill delegation', () => {
 
   it('falls back to local parser when backend fails', async () => {
     vi.spyOn(api, 'parseBillWithAi').mockRejectedValueOnce(new Error('Backend offline'))
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network offline'))
 
-    // Valid simple text PDF can be parsed by local pdf-text
-    // Or if error, falls through to local reader
     try {
       const mockFile = new File(['plain text bill'], 'plain.txt', { type: 'text/plain' })
       await readBill(mockFile)
     } catch (err) {
-      // Expected to fail on non-pdf/image after failing backend
+      // Expected to fail on non-pdf/image after failing backend & client AI
       expect(err).toBeDefined()
     }
   })

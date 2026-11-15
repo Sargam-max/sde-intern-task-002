@@ -7,6 +7,17 @@ export const ai = new Hono<AppEnv>()
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024 // 5 MB
 
+/**
+ * Resolves Gemini API key privately from server environment variables (c.env.GEMINI_API_KEY)
+ * or optional request header.
+ */
+export function resolveGeminiKey(envKey?: string, headerKey?: string | null): string | null {
+  if (headerKey === 'none') return null
+  if (envKey?.trim()) return envKey.trim()
+  if (headerKey?.trim()) return headerKey.trim()
+  return null
+}
+
 type GeminiParsedBill = {
   title?: string
   totalCents?: number
@@ -30,19 +41,26 @@ function bytesToBase64(bytes: Uint8Array): string {
 
 /** Check if Gemini API key is configured on server */
 ai.get('/bills/ai-status', (c) => {
-  const serverKey = c.env.GEMINI_API_KEY?.trim()
+  const apiKey = resolveGeminiKey(c.env.GEMINI_API_KEY, c.req.header('x-gemini-key'))
   return c.json({
-    available: Boolean(serverKey),
-    hasServerKey: Boolean(serverKey),
+    available: Boolean(apiKey),
+    hasServerKey: Boolean(apiKey),
+    model: 'gemini-2.5-flash',
+  })
+})
+
+ai.get('/ai/status', (c) => {
+  const apiKey = resolveGeminiKey(c.env.GEMINI_API_KEY, c.req.header('x-gemini-key'))
+  return c.json({
+    available: Boolean(apiKey),
+    hasServerKey: Boolean(apiKey),
     model: 'gemini-2.5-flash',
   })
 })
 
 /** Parse a bill document (PDF or image) using Gemini multimodal AI vision */
-ai.post('/bills/parse', async (c) => {
-  const serverKey = c.env.GEMINI_API_KEY?.trim()
-  const headerKey = c.req.header('x-gemini-key')?.trim()
-  const apiKey = serverKey || headerKey
+const handleParseBill = async (c: import('hono').Context<AppEnv>) => {
+  const apiKey = resolveGeminiKey(c.env.GEMINI_API_KEY, c.req.header('x-gemini-key'))
 
   if (!apiKey) {
     throw new ApiError(
@@ -218,4 +236,7 @@ Only output the JSON object, nothing else.
     502,
     `Failed to parse bill with Gemini: ${lastError?.message || 'Unknown error'}`,
   )
-})
+}
+
+ai.post('/bills/parse', handleParseBill)
+ai.post('/parse-bill', handleParseBill)
