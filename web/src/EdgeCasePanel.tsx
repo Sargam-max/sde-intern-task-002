@@ -9,7 +9,7 @@ const statusOf = (err: unknown) =>
 
 /**
  * Dev-only panel that triggers each "case you must handle" against the real API and
- * prints what came back. It is the easiest way to show the cases in the video.
+ * prints what came back. Collapsible so it stays clean in the UI.
  */
 export function EdgeCasePanel({
   homeId,
@@ -133,92 +133,102 @@ export function EdgeCasePanel({
   const someBill = bills[0]
 
   return (
-    <section className="card test-panel">
-      <h2>Test the edge cases</h2>
-      <p className="muted small">
-        Shown only in development. Each button calls the real API and prints the answer.
-      </p>
+    <details className="card dev-panel-details">
+      <summary className="dev-panel-summary">
+        <div className="dev-panel-summary-left">
+          <span className="dev-badge">DEV TOOL</span>
+          <strong>Test the edge cases (7 required scenarios)</strong>
+        </div>
+        <span className="dev-toggle-hint">Click to expand / collapse</span>
+      </summary>
 
-      <div className="test-grid">
-        <button type="button" disabled={busy} onClick={emptyHome}>
-          1 · Home with no members
-        </button>
-        <button type="button" disabled={busy} onClick={invalidAmounts}>
-          2 · Zero, negative, decimal amounts
-        </button>
-        <button type="button" disabled={busy} onClick={samePaymentTwice}>
-          4 · Same payment sent twice
-        </button>
-        <button type="button" disabled={busy} onClick={twoPayersAtOnce}>
-          5 · Two payers at the same time
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() =>
-            expectError('Pay a share that does not exist', 404, () =>
-              api.payShare(someBill?.id ?? 'no-bill', 'does-not-exist', crypto.randomUUID()),
-            )
-          }
-        >
-          6 · Share that does not exist
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() =>
-            expectError('Pay on a bill that does not exist', 404, () =>
-              api.payShare('does-not-exist', 'does-not-exist', crypto.randomUUID()),
-            )
-          }
-        >
-          6 · Bill that does not exist
-        </button>
-      </div>
-      <p className="muted small">
-        3 · Uneven amounts: type 10.00 in “New bill” with 3 members to see the split preview.{' '}
-        <Link to="/homes/$homeId" params={{ homeId: 'does-not-exist' }}>
-          Open a home that does not exist
-        </Link>
-      </p>
+      <div className="dev-panel-body">
+        <p className="muted small" style={{ margin: '8px 0 14px' }}>
+          Shown only in development. Each button calls the real API and prints the live result.
+        </p>
 
-      <fieldset className="simulate">
-        <legend>7 · Make the API fail (applies to every request from this page)</legend>
-        {(
-          [
-            ['off', 'Normal'],
-            ['slow', 'Slow (3 s)'],
-            ['timeout', 'Too slow (times out)'],
-            ['error', '500 error'],
-          ] as const
-        ).map(([value, label]) => (
-          <label key={value} className="radio">
-            <input
-              type="radio"
-              name="simulate"
-              checked={mode === value}
-              onChange={() => changeMode(value)}
-            />
-            {label}
-          </label>
-        ))}
-        <button type="button" className="secondary" onClick={onReload}>
-          Reload the page data
-        </button>
-      </fieldset>
+        <div className="test-grid">
+          <button type="button" disabled={busy} onClick={emptyHome}>
+            1 · Home with no members
+          </button>
+          <button type="button" disabled={busy} onClick={invalidAmounts}>
+            2 · Zero, negative, decimal amounts
+          </button>
+          <button type="button" disabled={busy} onClick={samePaymentTwice}>
+            4 · Same payment sent twice
+          </button>
+          <button type="button" disabled={busy} onClick={twoPayersAtOnce}>
+            5 · Two payers at the same time
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() =>
+              expectError('Pay a share that does not exist', 404, () =>
+                api.payShare(someBill?.id ?? 'no-bill', 'does-not-exist', crypto.randomUUID()),
+              )
+            }
+          >
+            6 · Share that does not exist
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() =>
+              expectError('Pay on a bill that does not exist', 404, () =>
+                api.payShare('does-not-exist', 'does-not-exist', crypto.randomUUID()),
+              )
+            }
+          >
+            6 · Bill that does not exist
+          </button>
+        </div>
 
-      {log.length > 0 && (
-        <ul className="test-log" aria-live="polite">
-          {log.map((line) => (
-            <li key={line.id} className={line.ok ? 'ok' : 'bad'}>
-              <strong>
-                {line.ok ? '✓' : '✗'} {line.label}
-              </strong>
-              <span>{line.result}</span>
-            </li>
+        <p className="muted small" style={{ margin: '8px 0 14px' }}>
+          3 · Uneven amounts: type 10.00 in “New bill” with 3 members to see the split preview.{' '}
+          <Link to="/homes/$homeId" params={{ homeId: 'does-not-exist' }}>
+            Open a home that does not exist
+          </Link>
+        </p>
+
+        <fieldset className="simulate">
+          <legend>7 · Make the API fail (applies to every request from this page)</legend>
+          {(
+            [
+              ['off', 'Normal'],
+              ['slow', 'Slow (3 s)'],
+              ['timeout', 'Too slow (times out)'],
+              ['error', '500 error'],
+            ] as const
+          ).map(([value, label]) => (
+            <label key={value} className="radio">
+              <input
+                type="radio"
+                name="simulate"
+                checked={mode === value}
+                onChange={() => changeMode(value)}
+              />
+              {label}
+            </label>
           ))}
-        </ul>
-      )}
-    </section>
+          <button type="button" className="secondary" onClick={onReload}>
+            Reload page data
+          </button>
+        </fieldset>
+
+        {log.length > 0 && (
+          <ul className="test-log" aria-live="polite">
+            {log.map((line) => (
+              <li key={line.id} className={line.ok ? 'ok' : 'bad'}>
+                <strong>
+                  {line.ok ? '✓' : '✗'} {line.label}
+                </strong>
+                <span>{line.result}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </details>
   )
 }

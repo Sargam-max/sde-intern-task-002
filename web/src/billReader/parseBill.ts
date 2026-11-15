@@ -2,9 +2,10 @@
  * Finds the amount to pay (and a likely title) in the text of a bill.
  *
  * The text comes from a PDF or from OCR of a photo, so it is noisy. The approach:
- *  1. find every money-looking value on every line,
- *  2. score each value by the words on its line ("amount due" beats "subtotal"),
- *  3. pick the best one, and keep the next best so the user can choose another.
+ *  1. clean OCR noise and normalize spaced decimals,
+ *  2. find every money-looking value on every line,
+ *  3. score each value by the words on its line ("amount due" beats "subtotal"),
+ *  4. pick the best one, and keep the next best so the user can choose another.
  *
  * Pure function with no browser APIs, so it is unit tested in parseBill.test.ts.
  * The user always sees and can change the result before the bill is saved.
@@ -36,25 +37,25 @@ const LINE_RULES: { pattern: RegExp; score: number }[] = [
   },
   { pattern: /\bsub\s*-?\s*total\b/, score: 20 },
   { pattern: /\b(tax|vat|gst|cgst|sgst|igst|cess)\b/, score: 10 },
-  // The amount to pay.
+  // Strongest indicators of the final amount to pay.
   {
     pattern:
-      /\bgrand\s+total\b|\b(?:(?:total|current|net|final)\s+)?amount\s+(?:due|payable)\b|\b(?:total|balance|net|amt|payment|current)\s+(?:due|payable)\b|\b(?:total|current)\s+charges?\b|\bnew\s+balance\b|\bnet\s+amount\b|\bplease\s+pay\b|\bpay\s+this\s+amount\b|\b(?:amount|total)\s+to\s+pay\b|\bbill\s+(?:amount|total)\b|\binvoice\s+total\b|\btotal\s+amount\b|\bbalance\s+to\s+pay\b|\bamount\s*[:=]\s*\d/,
+      /\bgrand\s+total\b|\b(?:(?:total|current|net|final)\s+)?amount\s+(?:due|payable)\b|\b(?:total|balance|net|amt|payment|current)\s+(?:due|payable)\b|\b(?:total|current)\s+charges?\b|\bnew\s+balance\b|\bnet\s+amount\b|\bplease\s+pay\b|\bpay\s+this\s+amount\b|\b(?:amount|total)\s+to\s+pay\b|\bbill\s+(?:amount|total)\b|\binvoice\s+total\b|\btotal\s+amount\b|\bbalance\s+to\s+pay\b|\bamount\s*[:=]\s*\d|\btotal\s*[:=]\s*[$₹€£]?\s*\d/,
     score: 100,
   },
-  { pattern: /\btotal\b|\bbalance\b/, score: 60 },
+  { pattern: /\btotal\b|\bbalance\b|\bpayable\b/, score: 60 },
 ]
 
-const KEYWORD_SCORE_FLOOR = 20 // a label at or above this may take its value from the next line
+const KEYWORD_SCORE_FLOOR = 20 // a label at or above this may take its value from the next lines
 const PLAIN_VALUE_SCORE = 1
 
-// A number-looking token, with an optional currency in front. It must not be glued to
-// letters, dates or codes ("INV-2041", "12/03/2026", "555-0199"). Allows Indian "504/-".
+// A number-looking token, with optional currency symbols in front or trailing.
+// Handles $, ₹, €, £, Rs, INR, USD, EUR, GBP, and Indian notation "504/-".
 const MONEY =
-  /(?<![\w.,/-])((?:[$₹€£]|rs\.?|inr|usd|eur|gbp)\s*)?(\d(?:[\d.,]*\d)?)(?:\s*(?:\/[-=]?|\/-))?(?![\w/-])/gi
+  /(?<![\w.,/-])((?:[$₹€£]|rs\.?|inr|usd|eur|gbp)\s*)?(\d(?:[\d.,]*\d)?)(?:\s*(?:[$₹€£]|rs\.?|inr|usd|eur|gbp|\/[-=]?|\/-))?(?![\w/-])/gi
 
 /**
- * Turns "1,234.56", "1.234,56", "1,23,456.50", "123,45" or "12.5" into cents.
+ * Turns "1,234.56", "1.234,56", "1,23,456.50", "123,45", "12.5" or "504" into cents.
  * The last "." or "," is a decimal point when 1 or 2 digits follow it, and a thousands
  * separator when 3 digits follow. Returns null for anything that does not read as money.
  */
@@ -105,11 +106,16 @@ type MoneyValue = { cents: number; explicit: boolean }
 
 /** Every money value on a line, in cents. `explicit` = had a currency sign or decimals. */
 export function findMoney(line: string): MoneyValue[] {
+  // Normalize OCR artifacts where decimal dots or commas have accidental whitespace: "504 . 00" -> "504.00"
+  const cleaned = line.replace(/(\d+)\s+([.,])\s+(\d{1,2})\b/g, '$1$2$3')
   const values: MoneyValue[] = []
-  for (const match of line.matchAll(MONEY)) {
+  for (const match of cleaned.matchAll(MONEY)) {
     const parsed = parseAmountToken(match[2] ?? '')
     if (parsed)
-      values.push({ cents: parsed.cents, explicit: Boolean(match[1]) || parsed.hasDecimals })
+      values.push({
+        cents: parsed.cents,
+        explicit: Boolean(match[1]) || parsed.hasDecimals,
+      })
   }
   return values
 }
@@ -141,7 +147,12 @@ function guessTitle(lines: string[]): string | null {
 export function parseBill(text: string): ParsedBill {
   const lines = text
     .split(/\r?\n/)
-    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .map((line) =>
+      line
+        .replace(/[|\][~—–]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    )
     .filter((line) => line.length > 0)
 
   const found: AmountCandidate[] = []
@@ -163,11 +174,13 @@ export function parseBill(text: string): ParsedBill {
       return
     }
 
-    // "Amount due" on one line and "$41.20" on the next: OCR or tables often split them across 1 or 2 lines.
+    // "Amount due" on one line and "504" on subsequent lines (handling table cells and blank dividers)
     if (lineScore !== null && lineScore >= KEYWORD_SCORE_FLOOR) {
-      for (let offset = 1; offset <= 2; offset++) {
+      for (let offset = 1; offset <= 4; offset++) {
         const next = lines[index + offset]
         if (!next) break
+        // Skip empty lines or pure punctuation lines (e.g. ":", "-", "|")
+        if (/^[:|\-_=.]+$/.test(next.trim())) continue
         const nextValues = findMoney(next)
         const lastVal = nextValues.at(-1)
         if (lastVal) {
