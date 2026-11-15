@@ -6,6 +6,16 @@ This project solves the problem of tracking shared living expenses without float
 
 ---
 
+## UI Preview
+
+|                  Household Dashboard                   |                Offline In-Browser OCR Scanner                |
+| :----------------------------------------------------: | :----------------------------------------------------------: |
+| ![Household Dashboard](docs/screenshots/dashboard.png) | ![Offline OCR Scanner](docs/screenshots/ocr_bill_reader.png) |
+
+_Modern fintech UI with real-time financial KPI cards, settlement progress bars, deterministic avatar badges, and in-browser WebAssembly OCR._
+
+---
+
 ## Architecture Overview
 
 ```
