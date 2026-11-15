@@ -34,18 +34,18 @@ function getCategoryIcon(title: string): string {
 
 function getAvatarColor(name: string): string {
   const colors = [
-    '#4f46e5', // indigo
-    '#059669', // emerald
-    '#d97706', // amber
-    '#dc2626', // rose
-    '#7c3aed', // violet
-    '#0284c7', // sky
-    '#0d9488', // teal
-    '#e11d48', // pink
+    '#6366f1', // indigo
+    '#10b981', // emerald
+    '#f59e0b', // amber
+    '#ef4444', // rose
+    '#8b5cf6', // violet
+    '#0ea5e9', // sky
+    '#14b8a6', // teal
+    '#ec4899', // pink
   ]
   let hash = 0
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  return colors[Math.abs(hash) % colors.length] ?? '#4f46e5'
+  return colors[Math.abs(hash) % colors.length] ?? '#6366f1'
 }
 
 function HomePage() {
@@ -63,7 +63,7 @@ function HomePage() {
 
   if (state.status !== 'ready') {
     return (
-      <Page>
+      <Page homeId={homeId}>
         {state.status === 'loading' ? (
           <div className="card loading-card" role="status" aria-live="polite">
             <span className="spinner large" aria-hidden="true" />
@@ -93,7 +93,12 @@ function HomePage() {
   const totalSettledCents = Math.max(0, totalBilledCents - totalOutstandingCents)
 
   return (
-    <Page title={home.name} memberCount={home.members.length} billCount={bills.length}>
+    <Page
+      title={home.name}
+      homeId={homeId}
+      memberCount={home.members.length}
+      billCount={bills.length}
+    >
       {state.refreshError && (
         <div className="alert alert-soft" role="alert">
           Could not refresh: {state.refreshError}{' '}
@@ -108,25 +113,33 @@ function HomePage() {
         <div className="metric-card">
           <div className="metric-header-row">
             <span className="metric-label">Total Expenses</span>
-            <span className="metric-beacon-dot ok" title="Live sync" />
+            <div className="metric-icon-badge metric-icon-accent">
+              <span>💳</span>
+            </div>
           </div>
           <span className="metric-value">{formatCents(totalBilledCents)}</span>
-          <span className="metric-sub">{bills.length} bills recorded</span>
+          <span className="metric-sub">
+            {bills.length} {bills.length === 1 ? 'bill' : 'bills'} recorded
+          </span>
         </div>
         <div className="metric-card highlight-warn">
           <div className="metric-header-row">
             <span className="metric-label">Total Outstanding</span>
-            {totalOutstandingCents > 0 && (
-              <span className="metric-beacon-dot warn" title="Pending" />
-            )}
+            <div className="metric-icon-badge metric-icon-warn">
+              <span>⏳</span>
+            </div>
           </div>
           <span className="metric-value warn">{formatCents(totalOutstandingCents)}</span>
-          <span className="metric-sub">Across all roommates</span>
+          <span className="metric-sub">
+            {totalOutstandingCents === 0 ? '✓ Zero pending balance' : 'Across all roommates'}
+          </span>
         </div>
         <div className="metric-card highlight-ok">
           <div className="metric-header-row">
             <span className="metric-label">Settled / Paid</span>
-            <span className="metric-beacon-dot ok" title="Verified" />
+            <div className="metric-icon-badge metric-icon-ok">
+              <span>🛡️</span>
+            </div>
           </div>
           <span className="metric-value ok">{formatCents(totalSettledCents)}</span>
           <span className="metric-sub">
@@ -134,6 +147,16 @@ function HomePage() {
               ? `${Math.round((totalSettledCents / totalBilledCents) * 100)}% resolved`
               : 'All settled up'}
           </span>
+          {totalBilledCents > 0 && (
+            <div className="metric-mini-bar">
+              <div
+                className="metric-mini-bar-fill"
+                style={{
+                  width: `${Math.min(100, Math.round((totalSettledCents / totalBilledCents) * 100))}%`,
+                }}
+              />
+            </div>
+          )}
         </div>
       </section>
 
@@ -227,21 +250,23 @@ function ShareButton() {
       type="button"
       className="btn-share-pill"
       onClick={handleCopy}
-      title="Copy household link"
+      title="Copy shareable household link"
       aria-label="Copy household link"
     >
-      {copied ? '✓ Copied!' : '🔗 Share'}
+      {copied ? '✓ Copied to clipboard!' : '🔗 Share Link'}
     </button>
   )
 }
 
 function Page({
   title,
+  homeId,
   memberCount,
   billCount,
   children,
 }: {
   title?: string
+  homeId?: string
   memberCount?: number
   billCount?: number
   children: React.ReactNode
@@ -251,14 +276,25 @@ function Page({
       <header className="app-header">
         <nav className="breadcrumbs">
           <Link to="/" className="breadcrumb-link">
-            ← All homes
+            ← All Households
           </Link>
+          {title && (
+            <>
+              <span className="breadcrumb-separator">/</span>
+              <span className="breadcrumb-current">{title}</span>
+            </>
+          )}
         </nav>
         {title && (
           <div className="home-title-row">
             <div className="home-title-group">
-              <span className="home-icon">🏠</span>
-              <h1>{title}</h1>
+              <div className="home-icon-squircle">
+                <span className="home-icon">🏠</span>
+              </div>
+              <div className="home-title-content">
+                <h1>{title}</h1>
+                {homeId && <span className="home-id-tag">Household ID · {homeId.slice(0, 8)}</span>}
+              </div>
             </div>
             {memberCount !== undefined && billCount !== undefined && (
               <div className="header-meta">
@@ -337,6 +373,7 @@ function BillCard({
   const paidCount = bill.shares.filter((s) => s.paidAt !== null).length
   const totalCount = bill.shares.length
   const percentPaid = totalCount > 0 ? Math.round((paidCount / totalCount) * 100) : 0
+  const isAllPaid = totalCount > 0 && paidCount === totalCount
   const extraCents = totalCount > 0 ? bill.totalCents % totalCount : 0
   const icon = getCategoryIcon(bill.title)
 
@@ -344,7 +381,7 @@ function BillCard({
     <article className="card bill-card">
       <header className="bill-card-header">
         <div className="bill-meta-left">
-          <span className="bill-cat-icon">{icon}</span>
+          <div className="bill-cat-icon">{icon}</div>
           <div>
             <h3>{bill.title}</h3>
             <span className="bill-sub">
@@ -355,6 +392,11 @@ function BillCard({
         <div className="bill-amount-badge">
           <span className="amount-label">Total</span>
           <span className="amount-value">{formatCents(bill.totalCents)}</span>
+          {isAllPaid ? (
+            <span className="pill-badge-ok">✓ Settled</span>
+          ) : (
+            <span className="pill-badge-pending">{totalCount - paidCount} pending</span>
+          )}
         </div>
       </header>
 
@@ -384,7 +426,7 @@ function BillCard({
               <th scope="col" className="num">
                 Share
               </th>
-              <th scope="col" style={{ width: '130px' }}>
+              <th scope="col" style={{ width: '140px' }}>
                 Status
               </th>
             </tr>

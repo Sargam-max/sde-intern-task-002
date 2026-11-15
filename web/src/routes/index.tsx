@@ -65,28 +65,29 @@ function Start() {
       {/* Brand Hero Header */}
       <header className="hero-header">
         <div className="hero-badge">
-          <span className="badge-sparkle">✨</span> Cloudflare D1 · Zero Rounding Drift
+          <span className="badge-sparkle">✨</span> Cloudflare D1 · Production Fintech Architecture
         </div>
-        <div className="brand-logo">
-          <span className="brand-icon">⚡</span>
-          <span className="brand-name">BillSplitter</span>
-        </div>
-        <h1>Shared expenses made exact.</h1>
+        <h1 className="hero-title-gradient">Shared expenses made exact.</h1>
         <p className="hero-subtitle">
-          Fair, transparent bill splitting for shared households. Zero rounding errors, atomic
-          concurrency safety, and instant in-browser OCR.
+          Fair, transparent expense splitting for shared households. Zero rounding drift, atomic
+          concurrency safety, and instant multimodal bill reading.
         </p>
+        <div className="hero-feature-pills">
+          <span className="feature-pill">🛡️ Mathematical Cent Precision</span>
+          <span className="feature-pill">⚡ Atomic D1 SQLite</span>
+          <span className="feature-pill">👁️ Smart Receipt Vision</span>
+        </div>
       </header>
 
       <div className="start-grid">
         {/* Create Home Card */}
         <section className="card start-card">
           <div className="card-header">
-            <h2>Create a Home</h2>
+            <h2>Create a Household</h2>
             <span className="card-badge">Instant Setup</span>
           </div>
           <p className="muted small" style={{ margin: '0 0 16px' }}>
-            Set up a household for your apartment, dorm, or flatmates.
+            Set up an expense ledger for your apartment, dorm, or flatmates in seconds.
           </p>
           <form className="create-home-form" onSubmit={create}>
             <label className="sr-only" htmlFor="home-name">
@@ -97,7 +98,7 @@ function Start() {
                 id="home-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Home name, e.g. Flat 4B, Baker St."
+                placeholder="Household name, e.g. Flat 4B, Baker St."
                 maxLength={100}
                 disabled={busy}
               />
@@ -143,7 +144,9 @@ function Start() {
               <div className="empty-compact">
                 <span className="empty-icon-small">🏠</span>
                 <p>No households created yet.</p>
-                <span className="muted small">Create your first household using the form.</span>
+                <span className="muted small">
+                  Create your first household using the form above.
+                </span>
               </div>
             ) : (
               <ul className="home-grid-list">
@@ -155,16 +158,19 @@ function Start() {
                       className="home-card-link"
                     >
                       <div className="home-card-left">
-                        <span className="home-avatar">🏠</span>
+                        <div className="home-avatar-squircle">🏠</div>
                         <div>
                           <span className="home-card-name">{home.name}</span>
                           <span className="home-card-stats">
-                            {home.memberCount} {home.memberCount === 1 ? 'member' : 'members'} ·{' '}
+                            {home.memberCount} {home.memberCount === 1 ? 'roommate' : 'roommates'} ·{' '}
                             {home.billCount} {home.billCount === 1 ? 'bill' : 'bills'}
                           </span>
                         </div>
                       </div>
-                      <span className="home-card-arrow">→</span>
+                      <div className="home-card-arrow-wrap">
+                        <span className="home-card-arrow-label">Open Ledger</span>
+                        <span className="home-card-arrow">→</span>
+                      </div>
                     </Link>
                   </li>
                 ))}

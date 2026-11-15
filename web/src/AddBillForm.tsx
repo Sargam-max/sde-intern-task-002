@@ -179,7 +179,7 @@ export function AddBillForm({
           className={mode === 'type' ? 'active' : ''}
           onClick={() => switchMode('type')}
         >
-          ✎ Type amount manually
+          ✍️ Type manually
         </button>
         <button
           type="button"
@@ -191,7 +191,7 @@ export function AddBillForm({
             import('./billReader/readBill').then((m) => m.preloadOcr()).catch(() => {})
           }}
         >
-          ⬆ Upload & auto-read bill (PDF/Photo)
+          ⚡ Scan bill (PDF/Photo)
         </button>
       </div>
 
@@ -277,38 +277,59 @@ export function AddBillForm({
             id="bill-title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title, e.g. Electricity"
+            placeholder="Title, e.g. ConEd Electric"
             maxLength={200}
           />
         </div>
         <div className="input-group">
           <label htmlFor="bill-amount" className="input-label">
-            {mode === 'upload' ? 'Amount (auto-read or type)' : 'Amount in dollars ($)'}
+            {mode === 'upload' ? 'Amount (auto-read or type)' : 'Amount in USD ($)'}
           </label>
-          <input
-            id="bill-amount"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="Amount, e.g. 10.00"
-            inputMode="decimal"
-            aria-invalid={amountProblem !== null}
-          />
+          <div className="input-currency-wrapper">
+            <span className="currency-prefix">$</span>
+            <input
+              id="bill-amount"
+              className="input-currency"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              inputMode="decimal"
+              aria-invalid={amountProblem !== null}
+            />
+          </div>
         </div>
       </div>
 
       {amountProblem && <p className="field-error">{amountProblem}</p>}
       {preview.length > 0 && (
-        <p className="preview">
-          {formatCents(cents ?? 0)} = {cents} cents, split:{' '}
-          {preview.map((part, i) => `${members[i]?.name ?? '?'} ${formatCents(part)}`).join(' · ')}
-          {(cents ?? 0) % members.length !== 0 &&
-            ' (does not divide evenly: the extra cents go to the first members, in join order)'}
-        </p>
+        <div className="preview-split-box">
+          <div className="preview-split-header">
+            <span className="preview-split-title">⚡ Live Split Calculator</span>
+            <span className="preview-split-total">{formatCents(cents ?? 0)}</span>
+          </div>
+          <div className="preview-split-chips">
+            {preview.map((part, i) => (
+              <span key={members[i]?.id ?? i} className="preview-member-chip">
+                <strong>{members[i]?.name ?? `Roommate ${i + 1}`}:</strong> {formatCents(part)}
+              </span>
+            ))}
+          </div>
+          {(cents ?? 0) % members.length !== 0 && (
+            <span className="preview-split-hint">
+              Extra {(cents ?? 0) % members.length}¢ allocated to first joined roommates to prevent
+              fractional cent drift.
+            </span>
+          )}
+        </div>
       )}
 
       <div>
-        <button type="submit" disabled={busy || read.status === 'reading'}>
-          {busy ? 'Adding…' : 'Add bill'}
+        <button
+          type="submit"
+          className="btn-primary-full"
+          disabled={busy || read.status === 'reading'}
+        >
+          {busy ? 'Adding Bill…' : '+ Add Bill to Household →'}
         </button>
       </div>
       {error && (
