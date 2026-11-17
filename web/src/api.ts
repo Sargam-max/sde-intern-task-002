@@ -320,16 +320,16 @@ export function formatBytes(bytes: number) {
 
 // ---- money ----------------------------------------------------------------
 
-const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })
 
 /** Display only. Amounts stay whole cents everywhere else. */
 export const formatCents = (cents: number) => money.format(cents / 100)
 
-/** "12", "12.5", "12.50", "$12.50" or "1,234.50" -> cents. Parses text without floats. */
+/** "12", "12.5", "12.50", "₹12.50", "$12.50" or "1,234.50" -> cents. Parses text without floats. */
 export function parseDollarsToCents(input: string): number | null {
   const cleaned = input
     .trim()
-    .replace(/^[$₹€£]\s*/, '')
+    .replace(/^(?:[$₹€£]|rs\.?|inr)\s*/i, '')
     .replace(/\s+/g, '')
   const uncomma = cleaned.replace(/,/g, '')
   const match = /^(\d{1,9})(?:\.(\d{1,2}))?$/.exec(uncomma)

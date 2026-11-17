@@ -283,10 +283,10 @@ export function AddBillForm({
         </div>
         <div className="input-group">
           <label htmlFor="bill-amount" className="input-label">
-            {mode === 'upload' ? 'Amount (auto-read or type)' : 'Amount in USD ($)'}
+            {mode === 'upload' ? 'Amount (auto-read or type)' : 'Amount in Rs (₹)'}
           </label>
           <div className="input-currency-wrapper">
-            <span className="currency-prefix">$</span>
+            <span className="currency-prefix">₹</span>
             <input
               id="bill-amount"
               className="input-currency"

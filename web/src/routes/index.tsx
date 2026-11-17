@@ -188,7 +188,7 @@ function Start() {
           <div className="feature-card-icon">🛡️</div>
           <h3>Zero Cent Drift</h3>
           <p>
-            When dividing $100 among 3 roommates, standard floating math produces $33.333... and
+            When dividing ₹100 among 3 roommates, standard floating math produces ₹33.333... and
             loses a cent. BillSplitter's deterministic integer math allocates remaining cents in
             join order so the sum always matches 100.00%.
           </p>
