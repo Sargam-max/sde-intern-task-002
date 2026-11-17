@@ -58,17 +58,34 @@ export async function readWithGemini(file: File): Promise<ParsedBill & { text: s
   const mimeType = file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg')
 
   const prompt = `
-Analyze this bill or invoice document carefully and extract the financial information.
-Return a valid JSON object matching this schema:
+You are an expert financial document and utility bill parser with 100% precision.
+Your goal is to extract the exact final payable amount from this bill without hallucination.
+
+CRITICAL EXTRACTION RULES:
+1. IDENTIFY THE TRUE PAYABLE AMOUNT:
+   - Locate the final total or net payable amount for the current billing cycle (e.g. "Total Amount Due", "Net Payable", "Current Bill", "Total to Pay", "Grand Total", "Amount Due", "Net Amount Payable").
+   - NEVER confuse the payable amount with:
+     * Account numbers, Customer IDs, Meter numbers, or Invoice/Receipt numbers.
+     * Present/Previous meter readings (e.g. 414, 404).
+     * Consumption units (e.g. 10 cu.m., 120 kWh).
+     * Tax ID / TIN numbers, phone numbers, or dates.
+     * Subtotals, arrears (if already paid), or security deposits.
+2. ON-TIME VS LATE PAYMENT:
+   - If the bill shows both an on-time amount (e.g. "Total Amount Due: 210.00") and a penalty/after-due-date surcharge amount (e.g. "Amount after due date: 220.50"), ALWAYS extract the regular ON-TIME amount (210.00).
+3. NO HALLUCINATIONS:
+   - The payableAmount MUST be printed verbatim on the bill. Do NOT calculate, guess, or invent numbers that are not printed.
+4. EXACT TITLE:
+   - Identify the issuing organization or utility provider (e.g. "Buenavista Water District", "Airtel", "Tata Power", "BESCOM").
+
+Output ONLY a JSON object:
 {
-  "title": "A short descriptive name of the utility or vendor (e.g. BESCOM Electricity, Airtel Wi-Fi, Water Board, FreshMart)",
-  "totalCents": (integer cents to be paid right now, e.g. 1475.00 becomes 147500. CRITICAL: If there is an on-time payable amount and an after-due-date late fee amount, ALWAYS choose the regular on-time payable amount),
-  "payableAmount": (float amount, e.g. 1475.00),
-  "currency": "USD, INR, EUR, GBP, etc.",
+  "title": "Vendor or utility name",
+  "payableAmount": 210.00,
+  "currency": "USD, INR, PHP, EUR, GBP, etc.",
   "dueDate": "YYYY-MM-DD or string if present",
-  "explanation": "Short line explaining where the amount came from"
+  "lineText": "Exact line from bill where amount is printed",
+  "explanation": "Why this is the payable amount"
 }
-Only output the JSON object, nothing else.
 `.trim()
 
   // Try gemini-2.5-flash first (most capable free multimodal model), then fallback
@@ -78,29 +95,44 @@ Only output the JSON object, nothing else.
   for (const model of models) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                {
-                  inlineData: {
-                    mimeType,
-                    data: base64Data,
+
+      const makeRequest = async (useThinkingBudget = true) => {
+        const generationConfig: Record<string, unknown> = {
+          responseMimeType: 'application/json',
+          temperature: 0.1,
+        }
+        if (useThinkingBudget && model.includes('2.5')) {
+          generationConfig.thinkingConfig = { thinkingBudget: 0 }
+        }
+
+        return fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: prompt },
+                  {
+                    inlineData: {
+                      mimeType,
+                      data: base64Data,
+                    },
                   },
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.1,
-          },
-        }),
-      })
+                ],
+              },
+            ],
+            generationConfig,
+          }),
+          signal: AbortSignal.timeout(15_000),
+        })
+      }
+
+      let response = await makeRequest(true)
+      if (!response.ok && response.status === 400) {
+        // Fallback without thinkingConfig if model rejects thinkingBudget
+        response = await makeRequest(false)
+      }
 
       if (!response.ok) {
         const errorBody = await response.text()
@@ -122,27 +154,41 @@ Only output the JSON object, nothing else.
         .replace(/```json/g, '')
         .replace(/```/g, '')
         .trim()
-      const parsed: GeminiInvoiceResponse = JSON.parse(cleanedJson)
+      const parsed: GeminiInvoiceResponse & { lineText?: string } = JSON.parse(cleanedJson)
 
       let totalCents: number | null = null
-      if (typeof parsed.totalCents === 'number' && parsed.totalCents > 0) {
+      const rawPayable =
+        typeof parsed.payableAmount === 'number' && parsed.payableAmount > 0
+          ? parsed.payableAmount
+          : typeof parsed.payableAmount === 'string'
+            ? Number.parseFloat(String(parsed.payableAmount).replace(/[^0-9.]/g, ''))
+            : null
+
+      if (rawPayable && !Number.isNaN(rawPayable) && rawPayable > 0) {
+        totalCents = Math.round(rawPayable * 100)
+      } else if (typeof parsed.totalCents === 'number' && parsed.totalCents > 0) {
         totalCents = Math.round(parsed.totalCents)
-      } else if (typeof parsed.payableAmount === 'number' && parsed.payableAmount > 0) {
-        totalCents = Math.round(parsed.payableAmount * 100)
       }
 
       const lineDescription =
+        parsed.lineText ||
         parsed.explanation ||
         `Gemini AI: ${parsed.title ?? 'Bill'} - ${parsed.currency ?? ''} ${parsed.payableAmount ?? ''}`
       const candidates = totalCents
         ? [{ cents: totalCents, line: lineDescription, score: 200 }]
         : []
 
+      const formattedTitle = parsed.title
+        ? /\b(bill|invoice)\b/i.test(parsed.title)
+          ? parsed.title
+          : `${parsed.title} bill`
+        : null
+
       return {
         totalCents,
         candidates,
-        title: parsed.title ? `${parsed.title} bill` : null,
-        text: `[Gemini AI Processed]\nProvider: ${parsed.title ?? 'Unknown'}\nPayable Amount: ${parsed.payableAmount ?? ''} ${parsed.currency ?? ''}\nDue Date: ${parsed.dueDate ?? 'N/A'}\nNote: ${parsed.explanation ?? ''}`,
+        title: formattedTitle,
+        text: `[Gemini AI Processed]\nProvider: ${parsed.title ?? 'Unknown'}\nPayable Amount: ${parsed.payableAmount ?? ''} ${parsed.currency ?? ''}\nDue Date: ${parsed.dueDate ?? 'N/A'}\nLine: ${parsed.lineText ?? ''}\nNote: ${parsed.explanation ?? ''}`,
       }
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))

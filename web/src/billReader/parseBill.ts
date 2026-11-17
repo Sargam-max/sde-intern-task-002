@@ -119,8 +119,8 @@ export function parseAmountToken(token: string): { cents: number; hasDecimals: b
   // A decimal separator must differ from the thousands separator ("1.234.56" is noise).
   if (fraction && separators.has(cleanToken.charAt(lastSep))) return null
 
-  // Plain integers without grouping or decimals that exceed 6 digits are account numbers or phone numbers
-  if (!fraction && separators.size === 0 && integerPart.length > 6) {
+  // Plain integers without grouping or decimals that exceed 5 digits are account numbers, bill numbers, or phone numbers
+  if (!fraction && separators.size === 0 && integerPart.length > 5) {
     return null
   }
 
@@ -153,6 +153,16 @@ export function findMoney(line: string): MoneyValue[] {
   // Remove date and time patterns from consideration
   cleaned = cleaned.replace(/\b\d{1,4}[/.-]\d{1,2}[/.-]\d{2,4}\b/g, ' ')
   cleaned = cleaned.replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, ' ')
+
+  // Remove phone numbers and account/meter identifiers
+  cleaned = cleaned.replace(
+    /\b(?:tel|phone|contact|mobile|call|ph|helpline)\s*[:=]?\s*\+?\d[\d\s-]{6,15}\b/gi,
+    ' ',
+  )
+  cleaned = cleaned.replace(
+    /\b(?:account|acct|meter|customer|consumer|tin|pan|receipt)\s*(?:no|num|number|#)?\s*[:=.]?\s*[a-zA-Z0-9-]{4,20}\b/gi,
+    ' ',
+  )
 
   const values: MoneyValue[] = []
   for (const match of cleaned.matchAll(MONEY)) {

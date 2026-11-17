@@ -277,7 +277,7 @@ export const api = {
     if (apiKeyOverride?.trim()) {
       headers['x-gemini-key'] = apiKeyOverride.trim()
     }
-    const timeout = AbortSignal.timeout(TIMEOUT_MS * 2)
+    const timeout = AbortSignal.timeout(45_000)
     const res = await fetch('/api/bills/parse', {
       method: 'POST',
       headers,
